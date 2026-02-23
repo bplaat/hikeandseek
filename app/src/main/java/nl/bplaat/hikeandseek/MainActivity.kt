@@ -18,6 +18,7 @@ import nl.bplaat.hikeandseek.ui.theme.HikeAndSeekTheme
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        PreferencesManager.init(this)
         enableEdgeToEdge()
         setContent {
             HikeAndSeekTheme {
@@ -30,22 +31,37 @@ class MainActivity : ComponentActivity() {
 @Composable
 fun MainContent(activity: ComponentActivity) {
     val scannedText = remember { mutableStateOf<String?>(null) }
+    val showSettings = remember { mutableStateOf(false) }
 
-    if (scannedText.value == null) {
-        CameraScreen(
-            context = activity,
-            lifecycleOwner = activity,
-            onCapture = { text ->
-                scannedText.value = text
-            }
-        )
-    } else {
-        TextResultsScreen(
-            scannedText = scannedText.value!!,
-            context = activity,
-            onBackToCamera = {
-                scannedText.value = null
-            }
-        )
+    when {
+        showSettings.value -> {
+            SettingsScreen(
+                context = activity,
+                onBackToResults = {
+                    showSettings.value = false
+                }
+            )
+        }
+        scannedText.value == null -> {
+            CameraScreen(
+                context = activity,
+                lifecycleOwner = activity,
+                onCapture = { text ->
+                    scannedText.value = text
+                }
+            )
+        }
+        else -> {
+            TextResultsScreen(
+                scannedText = scannedText.value!!,
+                context = activity,
+                onBackToCamera = {
+                    scannedText.value = null
+                },
+                onNavigateToSettings = {
+                    showSettings.value = true
+                }
+            )
+        }
     }
 }

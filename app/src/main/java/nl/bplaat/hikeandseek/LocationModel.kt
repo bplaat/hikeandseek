@@ -14,8 +14,10 @@ import kotlin.math.sqrt
 
 data class Location(
     val id: String,
-    val rdX: Double,
-    val rdY: Double,
+    val rdX: Int,
+    val rdY: Int,
+    val rdXRaw: Int,
+    val rdYRaw: Int,
     val description: String
 ) {
     val latitude: Double
@@ -26,7 +28,13 @@ data class Location(
 }
 
 object LocationParser {
-    fun parseLocations(text: String): List<Location> {
+    fun parseLocations(
+        text: String,
+        rdxPrefix: Int = 0,
+        rdxSuffix: Int = 0,
+        rdyPrefix: Int = 0,
+        rdySuffix: Int = 0
+    ): List<Location> {
         val locations = mutableListOf<Location>()
 
         // First, clean up the text: normalize whitespace and fix common OCR errors
@@ -56,9 +64,13 @@ object LocationParser {
         for (match in matches) {
             try {
                 val id = match.groupValues[1].trim()
-                val rdX = match.groupValues[2].toDouble()
-                val rdY = match.groupValues[3].toDouble()
+                val rdXScanned = match.groupValues[2].toInt()
+                val rdYScanned = match.groupValues[3].toInt()
                 var description = match.groupValues[4].trim()
+
+                // Concatenate prefix + scanned + suffix as strings, then parse to Int
+                val rdXConcatenated = (rdxPrefix.toString() + rdXScanned.toString() + rdxSuffix.toString()).toInt()
+                val rdYConcatenated = (rdyPrefix.toString() + rdYScanned.toString() + rdySuffix.toString()).toInt()
 
                 // Clean up description: consolidate whitespace and newlines
                 description = description
@@ -67,11 +79,18 @@ object LocationParser {
                     .trim()
 
                 // Skip invalid entries
-                if (id.isEmpty() || description.isEmpty() || !isValidCoordinate(rdX, rdY)) {
+                if (id.isEmpty() || description.isEmpty()) {
                     continue
                 }
 
-                locations.add(Location(id, rdX, rdY, description))
+                locations.add(Location(
+                    id = id,
+                    rdX = rdXConcatenated.toInt(),
+                    rdY = rdYConcatenated.toInt(),
+                    rdXRaw = rdXScanned,
+                    rdYRaw = rdYScanned,
+                    description = description
+                ))
             } catch (e: Exception) {
                 // Skip malformed entries
             }
@@ -79,17 +98,12 @@ object LocationParser {
 
         return locations
     }
-
-    private fun isValidCoordinate(x: Double, y: Double): Boolean {
-        // Dutch RD coordinates are roughly in range 0-350000
-        return x in 0.0..350000.0 && y in 0.0..350000.0
-    }
 }
 
 // RD (Rijksdriehoek) to WGS84 (lat/lon) conversion
 // Based on EPSG:28992 (RD) to EPSG:4326 (WGS84) transformation
 // Uses the standard Dutch geodetic reference coefficients
-fun rdToWgs84(rdX: Double, rdY: Double): Pair<Double, Double> {
+fun rdToWgs84(rdX: Int, rdY: Int): Pair<Double, Double> {
     // Normalize coordinates (use the official reference point)
     val pX = (rdX - 155000.0) / 100000.0
     val pY = (rdY - 463000.0) / 100000.0

@@ -24,8 +24,11 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Share
+import androidx.compose.material.icons.filled.MoreVert
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
+import androidx.compose.material3.DropdownMenu
+import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FloatingActionButton
 import androidx.compose.material3.Icon
@@ -49,15 +52,33 @@ import java.io.FileOutputStream
 fun TextResultsScreen(
     scannedText: String,
     context: Context,
-    onBackToCamera: () -> Unit
+    onBackToCamera: () -> Unit,
+    onNavigateToSettings: () -> Unit
 ) {
     // Handle system back button
     BackHandler(enabled = true) {
         onBackToCamera()
     }
 
-    val locations = LocationParser.parseLocations(scannedText)
+    val rdxPrefix = PreferencesManager.getRdxPrefix()
+    val rdxSuffix = PreferencesManager.getRdxSuffix()
+    val rdyPrefix = PreferencesManager.getRdyPrefix()
+    val rdySuffix = PreferencesManager.getRdySuffix()
+
+    val locations = androidx.compose.runtime.remember(
+        rdxPrefix, rdxSuffix, rdyPrefix, rdySuffix, scannedText
+    ) {
+        LocationParser.parseLocations(
+            scannedText,
+            rdxPrefix = rdxPrefix,
+            rdxSuffix = rdxSuffix,
+            rdyPrefix = rdyPrefix,
+            rdySuffix = rdySuffix
+        )
+    }
     val showDebug = locations.isEmpty()  // Show debug info if no locations parsed
+
+    val menuExpanded = androidx.compose.runtime.remember { androidx.compose.runtime.mutableStateOf(false) }
 
     Scaffold(
         topBar = {
@@ -68,6 +89,26 @@ fun TextResultsScreen(
                         Icon(
                             imageVector = Icons.AutoMirrored.Filled.ArrowBack,
                             contentDescription = "Back to Camera"
+                        )
+                    }
+                },
+                actions = {
+                    IconButton(onClick = { menuExpanded.value = true }) {
+                        Icon(
+                            imageVector = Icons.Filled.MoreVert,
+                            contentDescription = "Options"
+                        )
+                    }
+                    DropdownMenu(
+                        expanded = menuExpanded.value,
+                        onDismissRequest = { menuExpanded.value = false }
+                    ) {
+                        DropdownMenuItem(
+                            text = { Text("Settings") },
+                            onClick = {
+                                menuExpanded.value = false
+                                onNavigateToSettings()
+                            }
                         )
                     }
                 }
@@ -132,7 +173,13 @@ fun TextResultsScreen(
                     .padding(8.dp)
             ) {
                 items(locations) { location ->
-                    LocationCard(location)
+                    LocationCard(
+                        location = location,
+                        rdxPrefix = rdxPrefix,
+                        rdxSuffix = rdxSuffix,
+                        rdyPrefix = rdyPrefix,
+                        rdySuffix = rdySuffix
+                    )
                 }
             }
         }
@@ -140,7 +187,13 @@ fun TextResultsScreen(
 }
 
 @Composable
-private fun LocationCard(location: Location) {
+private fun LocationCard(
+    location: Location,
+    rdxPrefix: Int,
+    rdxSuffix: Int,
+    rdyPrefix: Int,
+    rdySuffix: Int
+) {
     Card(
         modifier = Modifier
             .fillMaxWidth()
@@ -167,7 +220,7 @@ private fun LocationCard(location: Location) {
                 modifier = Modifier.padding(top = 4.dp)
             )
             Text(
-                text = "RD: (${String.format("%.0f", location.rdX)}, ${String.format("%.0f", location.rdY)})",
+                text = "RD: (${rdxPrefix}${location.rdXRaw}${rdxSuffix}, ${rdyPrefix}${location.rdYRaw}${rdySuffix})",
                 fontSize = 12.sp,
                 color = Color(0xFF666666),
                 modifier = Modifier.padding(top = 4.dp)
