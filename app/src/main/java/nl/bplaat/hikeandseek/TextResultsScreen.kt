@@ -24,24 +24,40 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.itemsIndexed
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
-import androidx.compose.material.icons.filled.Share
+import androidx.compose.material.icons.filled.Add
+import androidx.compose.material.icons.filled.Delete
+import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.MoreVert
+import androidx.compose.material.icons.filled.Share
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.ExposedDropdownMenuBox
+import androidx.compose.material3.ExposedDropdownMenuDefaults
 import androidx.compose.material3.FloatingActionButton
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
+import androidx.compose.material3.MenuAnchorType
+import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateListOf
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
@@ -60,7 +76,6 @@ fun TextResultsScreen(
     onBackToCamera: () -> Unit,
     onNavigateToSettings: () -> Unit
 ) {
-    // Handle system back button
     BackHandler(enabled = true) {
         onBackToCamera()
     }
@@ -70,20 +85,80 @@ fun TextResultsScreen(
     val rdyPrefix = PreferencesManager.getRdyPrefix()
     val rdySuffix = PreferencesManager.getRdySuffix()
 
-    val locations = androidx.compose.runtime.remember(
-        rdxPrefix, rdxSuffix, rdyPrefix, rdySuffix, scannedText
-    ) {
-        LocationParser.parseLocations(
-            scannedText,
-            rdxPrefix = rdxPrefix,
-            rdxSuffix = rdxSuffix,
-            rdyPrefix = rdyPrefix,
-            rdySuffix = rdySuffix
-        )
+    val locations = remember(rdxPrefix, rdxSuffix, rdyPrefix, rdySuffix, scannedText) {
+        mutableStateListOf<Location>().also {
+            it.addAll(
+                LocationParser.parseLocations(
+                    scannedText,
+                    rdxPrefix = rdxPrefix,
+                    rdxSuffix = rdxSuffix,
+                    rdyPrefix = rdyPrefix,
+                    rdySuffix = rdySuffix
+                )
+            )
+        }
     }
-    val showDebug = locations.isEmpty()  // Show debug info if no locations parsed
 
-    val menuExpanded = androidx.compose.runtime.remember { androidx.compose.runtime.mutableStateOf(false) }
+    var menuExpanded by remember { mutableStateOf(false) }
+
+    // Dialog state
+    var dialogVisible by remember { mutableStateOf(false) }
+    var editingIndex by remember { mutableStateOf<Int?>(null) }
+    var dialogId by remember { mutableStateOf("") }
+    var dialogDescription by remember { mutableStateOf("") }
+    var dialogRdXRaw by remember { mutableStateOf("") }
+    var dialogRdYRaw by remember { mutableStateOf("") }
+    var dialogCategory by remember { mutableStateOf(LocationCategory.NORMAL_CHECKPOINT) }
+
+    fun openAddDialog() {
+        editingIndex = null
+        dialogId = ""
+        dialogDescription = ""
+        dialogRdXRaw = ""
+        dialogRdYRaw = ""
+        dialogCategory = LocationCategory.NORMAL_CHECKPOINT
+        dialogVisible = true
+    }
+
+    fun openEditDialog(index: Int) {
+        val loc = locations[index]
+        editingIndex = index
+        dialogId = loc.id
+        dialogDescription = loc.description
+        dialogRdXRaw = loc.rdXRaw.toString()
+        dialogRdYRaw = loc.rdYRaw.toString()
+        dialogCategory = loc.category
+        dialogVisible = true
+    }
+
+    fun saveDialog() {
+        val id = dialogId.trim()
+        val description = dialogDescription.trim()
+        val rdXScanned = dialogRdXRaw.trim().toIntOrNull() ?: return
+        val rdYScanned = dialogRdYRaw.trim().toIntOrNull() ?: return
+        if (id.isEmpty() || description.isEmpty()) return
+
+        val rdXConcatenated = (rdxPrefix.toString() + rdXScanned.toString() + rdxSuffix.toString()).toIntOrNull() ?: rdXScanned
+        val rdYConcatenated = (rdyPrefix.toString() + rdYScanned.toString() + rdySuffix.toString()).toIntOrNull() ?: rdYScanned
+
+        val location = Location(
+            id = id,
+            rdX = rdXConcatenated,
+            rdY = rdYConcatenated,
+            rdXRaw = rdXScanned,
+            rdYRaw = rdYScanned,
+            description = description,
+            category = dialogCategory
+        )
+
+        val idx = editingIndex
+        if (idx == null) {
+            locations.add(location)
+        } else {
+            locations[idx] = location
+        }
+        dialogVisible = false
+    }
 
     Scaffold(
         topBar = {
@@ -98,20 +173,26 @@ fun TextResultsScreen(
                     }
                 },
                 actions = {
-                    IconButton(onClick = { menuExpanded.value = true }) {
+                    IconButton(onClick = { openAddDialog() }) {
+                        Icon(
+                            imageVector = Icons.Filled.Add,
+                            contentDescription = "Add Location"
+                        )
+                    }
+                    IconButton(onClick = { menuExpanded = true }) {
                         Icon(
                             imageVector = Icons.Filled.MoreVert,
                             contentDescription = "Options"
                         )
                     }
                     DropdownMenu(
-                        expanded = menuExpanded.value,
-                        onDismissRequest = { menuExpanded.value = false }
+                        expanded = menuExpanded,
+                        onDismissRequest = { menuExpanded = false }
                     ) {
                         DropdownMenuItem(
                             text = { Text("Settings") },
                             onClick = {
-                                menuExpanded.value = false
+                                menuExpanded = false
                                 onNavigateToSettings()
                             }
                         )
@@ -121,9 +202,7 @@ fun TextResultsScreen(
         },
         floatingActionButton = {
             FloatingActionButton(
-                onClick = {
-                    downloadGPX(context, locations)
-                },
+                onClick = { downloadGPX(context, locations) },
                 shape = CircleShape,
                 containerColor = Color(0xFFFFD700),
                 contentColor = Color.Black,
@@ -157,9 +236,7 @@ fun TextResultsScreen(
                         modifier = Modifier
                             .fillMaxWidth()
                             .padding(8.dp),
-                        colors = CardDefaults.cardColors(
-                            containerColor = Color(0xFFFFF0F0)
-                        )
+                        colors = CardDefaults.cardColors(containerColor = Color(0xFFFFF0F0))
                     ) {
                         Text(
                             scannedText.take(1000),
@@ -177,18 +254,147 @@ fun TextResultsScreen(
                     .padding(innerPadding)
                     .padding(8.dp)
             ) {
-                items(locations) { location ->
+                itemsIndexed(locations) { index, location ->
                     LocationCard(
                         location = location,
                         rdxPrefix = rdxPrefix,
                         rdxSuffix = rdxSuffix,
                         rdyPrefix = rdyPrefix,
-                        rdySuffix = rdySuffix
+                        rdySuffix = rdySuffix,
+                        onEdit = { openEditDialog(index) },
+                        onDelete = { locations.removeAt(index) }
                     )
                 }
             }
         }
     }
+
+    if (dialogVisible) {
+        LocationEditDialog(
+            isEdit = editingIndex != null,
+            id = dialogId,
+            onIdChange = {
+                dialogId = it
+                dialogCategory = detectCategory(it.trim())
+            },
+            description = dialogDescription,
+            onDescriptionChange = { dialogDescription = it },
+            rdXRaw = dialogRdXRaw,
+            onRdXRawChange = { dialogRdXRaw = it },
+            rdYRaw = dialogRdYRaw,
+            onRdYRawChange = { dialogRdYRaw = it },
+            category = dialogCategory,
+            onCategoryChange = { dialogCategory = it },
+            onConfirm = { saveDialog() },
+            onDismiss = { dialogVisible = false }
+        )
+    }
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun LocationEditDialog(
+    isEdit: Boolean,
+    id: String,
+    onIdChange: (String) -> Unit,
+    description: String,
+    onDescriptionChange: (String) -> Unit,
+    rdXRaw: String,
+    onRdXRawChange: (String) -> Unit,
+    rdYRaw: String,
+    onRdYRawChange: (String) -> Unit,
+    category: LocationCategory,
+    onCategoryChange: (LocationCategory) -> Unit,
+    onConfirm: () -> Unit,
+    onDismiss: () -> Unit
+) {
+    var categoryExpanded by remember { mutableStateOf(false) }
+
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text(if (isEdit) "Edit Location" else "Add Location") },
+        text = {
+            Column(
+                modifier = Modifier.verticalScroll(rememberScrollState()),
+                verticalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
+                OutlinedTextField(
+                    value = id,
+                    onValueChange = onIdChange,
+                    label = { Text("ID") },
+                    singleLine = true,
+                    modifier = Modifier.fillMaxWidth()
+                )
+                OutlinedTextField(
+                    value = description,
+                    onValueChange = onDescriptionChange,
+                    label = { Text("Description") },
+                    modifier = Modifier.fillMaxWidth()
+                )
+                OutlinedTextField(
+                    value = rdXRaw,
+                    onValueChange = onRdXRawChange,
+                    label = { Text("RD X (raw)") },
+                    singleLine = true,
+                    modifier = Modifier.fillMaxWidth()
+                )
+                OutlinedTextField(
+                    value = rdYRaw,
+                    onValueChange = onRdYRawChange,
+                    label = { Text("RD Y (raw)") },
+                    singleLine = true,
+                    modifier = Modifier.fillMaxWidth()
+                )
+                ExposedDropdownMenuBox(
+                    expanded = categoryExpanded,
+                    onExpandedChange = { categoryExpanded = it }
+                ) {
+                    OutlinedTextField(
+                        value = category.name.replace("_", " ").lowercase()
+                            .replaceFirstChar { it.uppercase() },
+                        onValueChange = {},
+                        readOnly = true,
+                        label = { Text("Category") },
+                        trailingIcon = {
+                            ExposedDropdownMenuDefaults.TrailingIcon(expanded = categoryExpanded)
+                        },
+                        modifier = Modifier
+                            .menuAnchor(MenuAnchorType.PrimaryNotEditable)
+                            .fillMaxWidth()
+                    )
+                    ExposedDropdownMenu(
+                        expanded = categoryExpanded,
+                        onDismissRequest = { categoryExpanded = false }
+                    ) {
+                        LocationCategory.entries.forEach { cat ->
+                            DropdownMenuItem(
+                                text = {
+                                    Text(
+                                        cat.name.replace("_", " ").lowercase()
+                                            .replaceFirstChar { it.uppercase() }
+                                    )
+                                },
+                                onClick = {
+                                    onCategoryChange(cat)
+                                    categoryExpanded = false
+                                }
+                            )
+                        }
+                    }
+                }
+            }
+        },
+        confirmButton = {
+            TextButton(onClick = onConfirm) {
+                Text(if (isEdit) "Save" else "Add")
+            }
+        },
+        dismissButton = {
+            TextButton(onClick = onDismiss) {
+                Text("Cancel")
+            }
+        }
+    )
 }
 
 @Composable
@@ -197,15 +403,15 @@ private fun LocationCard(
     rdxPrefix: Int,
     rdxSuffix: Int,
     rdyPrefix: Int,
-    rdySuffix: Int
+    rdySuffix: Int,
+    onEdit: () -> Unit,
+    onDelete: () -> Unit
 ) {
     Card(
         modifier = Modifier
             .fillMaxWidth()
             .padding(vertical = 4.dp),
-        colors = CardDefaults.cardColors(
-            containerColor = Color(0xFFF5F5F5)
-        )
+        colors = CardDefaults.cardColors(containerColor = Color(0xFFF5F5F5))
     ) {
         Row(modifier = Modifier.fillMaxWidth().height(IntrinsicSize.Min)) {
             Box(
@@ -216,8 +422,8 @@ private fun LocationCard(
             )
             Column(
                 modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(12.dp)
+                    .weight(1f)
+                    .padding(start = 12.dp, top = 8.dp, bottom = 8.dp, end = 4.dp)
             ) {
                 Text(
                     text = location.id,
@@ -244,6 +450,28 @@ private fun LocationCard(
                     modifier = Modifier.padding(top = 2.dp)
                 )
             }
+            Column(
+                verticalArrangement = Arrangement.Top,
+                horizontalAlignment = Alignment.CenterHorizontally,
+                modifier = Modifier.padding(top = 4.dp, end = 4.dp)
+            ) {
+                IconButton(onClick = onEdit, modifier = Modifier.size(36.dp)) {
+                    Icon(
+                        imageVector = Icons.Filled.Edit,
+                        contentDescription = "Edit",
+                        modifier = Modifier.size(18.dp),
+                        tint = Color(0xFF666666)
+                    )
+                }
+                IconButton(onClick = onDelete, modifier = Modifier.size(36.dp)) {
+                    Icon(
+                        imageVector = Icons.Filled.Delete,
+                        contentDescription = "Delete",
+                        modifier = Modifier.size(18.dp),
+                        tint = Color(0xFFE53935)
+                    )
+                }
+            }
         }
     }
 }
@@ -252,7 +480,6 @@ private fun downloadGPX(context: Context, locations: List<Location>) {
     try {
         val gpxContent = generateGPX(locations)
 
-        // Create file in cache directory
         val fileName = "hikeandseek_locations_${System.currentTimeMillis()}.gpx"
         val file = File(context.cacheDir, fileName)
 
@@ -260,24 +487,20 @@ private fun downloadGPX(context: Context, locations: List<Location>) {
             output.write(gpxContent.toByteArray())
         }
 
-        // Get URI using FileProvider
         val uri = FileProvider.getUriForFile(
             context,
             "${context.packageName}.fileprovider",
             file
         )
 
-        // Create intent to open file
         val intent = Intent(Intent.ACTION_VIEW).apply {
             setDataAndType(uri, "application/gpx+xml")
             addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
         }
 
-        // Try to open with a maps/gpx viewer app
         try {
             context.startActivity(intent)
         } catch (e: Exception) {
-            // Fallback: show the file in file manager
             val openIntent = Intent(Intent.ACTION_VIEW).apply {
                 data = uri
                 addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
@@ -288,3 +511,4 @@ private fun downloadGPX(context: Context, locations: List<Location>) {
         e.printStackTrace()
     }
 }
+

@@ -35,6 +35,13 @@ data class Location(
         get() = rdToWgs84(rdX, rdY).second
 }
 
+fun detectCategory(id: String): LocationCategory = when {
+    id.startsWith("S", ignoreCase = true) -> LocationCategory.SUPER_CHECKPOINT
+    id.endsWith("*") && id.dropLast(1).all { it.isDigit() } -> LocationCategory.NIGHT_RESTRICTED
+    id.all { it.isLetter() } -> LocationCategory.SLAAPPLAATS
+    else -> LocationCategory.NORMAL_CHECKPOINT
+}
+
 object LocationParser {
     fun parseLocations(
         text: String,
@@ -91,12 +98,7 @@ object LocationParser {
                     continue
                 }
 
-                val category = when {
-                    id.startsWith("S", ignoreCase = true) -> LocationCategory.SUPER_CHECKPOINT
-                    id.endsWith("*") && id.dropLast(1).all { it.isDigit() } -> LocationCategory.NIGHT_RESTRICTED
-                    id.all { it.isLetter() } -> LocationCategory.SLAAPPLAATS
-                    else -> LocationCategory.NORMAL_CHECKPOINT
-                }
+                val category = detectCategory(id)
 
                 locations.add(Location(
                     id = id,

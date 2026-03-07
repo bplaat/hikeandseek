@@ -29,9 +29,11 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.CheckCircle
+import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material3.Button
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -121,6 +123,23 @@ fun CameraScreen(
                     CircularProgressIndicator(color = Color.White)
                     Text("Initializing camera...", color = Color.White, modifier = Modifier.padding(top = 16.dp))
                 }
+            }
+        }
+
+        // Skip to manual entry button in top-right corner
+        Box(
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(top = 48.dp, end = 8.dp),
+            contentAlignment = Alignment.TopEnd
+        ) {
+            IconButton(onClick = { onCapture("") }) {
+                Icon(
+                    imageVector = Icons.Filled.Edit,
+                    contentDescription = "Skip to manual entry",
+                    tint = Color.White,
+                    modifier = Modifier.size(28.dp)
+                )
             }
         }
 
