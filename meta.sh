@@ -22,7 +22,7 @@ check_copyright() {
 
 build() {
     echo "Building application..."
-    ./gradlew build
+    ./gradlew assembleDebug
 }
 
 check() {

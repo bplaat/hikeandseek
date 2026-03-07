@@ -168,7 +168,7 @@ fun generateGPX(locations: List<Location>): String {
     xsi:schemaLocation="http://www.topografix.com/GPX/1/1 http://www.topografix.com/GPX/1/1/gpx.xsd
         http://www.garmin.com/xmlschemas/GpxExtensions/v3 http://www.garmin.com/xmlschemas/GpxExtensionsv3.xsd">
   <metadata>
-    <name>HikeAndSeek Locations</name>
+    <name>Hike and Seek Locations</name>
     <time>${timestamp}</time>
   </metadata>
 """)

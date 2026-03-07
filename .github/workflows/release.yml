@@ -1,0 +1,41 @@
+name: release
+
+on:
+  workflow_dispatch:
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: write
+
+jobs:
+  hikeandseek-release:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - name: Setup Android SDK
+        uses: android-actions/setup-android@v3
+        with:
+          cmdline-tools-version: 14742923
+      - name: Build release
+        env:
+          KEYSTORE_FILE: keystore.jks
+          KEYSTORE_PASSWORD: hikeandseek
+          KEY_ALIAS: android
+          KEY_PASSWORD: hikeandseek
+        run: |
+          export JAVA_HOME=$JAVA_HOME_21_X64
+          export PATH=$JAVA_HOME/bin:$PATH
+          echo "${{ secrets.RELEASE_KEYSTORE }}" | base64 --decode > app/keystore.jks
+          ./gradlew assembleRelease
+      - name: Create Git tag and GitHub Release
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          TAG_VERSION=$(grep -oP '(?<=versionName = ")([^"]+)' app/build.gradle.kts)
+          gh release create "v${TAG_VERSION}" \
+            --title "Hike and Seek v${TAG_VERSION}" \
+            --notes "Download the \`.apk\` file and open it to install the application" \
+            app/build/outputs/apk/release/app-release.apk#hikeandseek-${TAG_VERSION}.apk
