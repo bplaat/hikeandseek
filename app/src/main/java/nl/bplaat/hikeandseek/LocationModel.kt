@@ -12,13 +12,21 @@ import kotlin.math.sin
 import kotlin.math.atan
 import kotlin.math.sqrt
 
+enum class LocationCategory(val hexColor: String, val garminColor: String) {
+    SUPER_CHECKPOINT("#FF6B00", "Amber"),
+    SLAAPPLAATS("#9C27B0", "Violet"),
+    NIGHT_RESTRICTED("#E53935", "Red"),
+    NORMAL_CHECKPOINT("#2979FF", "Blue"),
+}
+
 data class Location(
     val id: String,
     val rdX: Int,
     val rdY: Int,
     val rdXRaw: Int,
     val rdYRaw: Int,
-    val description: String
+    val description: String,
+    val category: LocationCategory
 ) {
     val latitude: Double
         get() = rdToWgs84(rdX, rdY).first
@@ -83,13 +91,21 @@ object LocationParser {
                     continue
                 }
 
+                val category = when {
+                    id.startsWith("S", ignoreCase = true) -> LocationCategory.SUPER_CHECKPOINT
+                    id.endsWith("*") && id.dropLast(1).all { it.isDigit() } -> LocationCategory.NIGHT_RESTRICTED
+                    id.all { it.isLetter() } -> LocationCategory.SLAAPPLAATS
+                    else -> LocationCategory.NORMAL_CHECKPOINT
+                }
+
                 locations.add(Location(
                     id = id,
                     rdX = rdXConcatenated.toInt(),
                     rdY = rdYConcatenated.toInt(),
                     rdXRaw = rdXScanned,
                     rdYRaw = rdYScanned,
-                    description = description
+                    description = description,
+                    category = category
                 ))
             } catch (e: Exception) {
                 // Skip malformed entries
@@ -144,8 +160,11 @@ fun generateGPX(locations: List<Location>): String {
     sb.append("""<?xml version="1.0" encoding="UTF-8"?>
 <gpx version="1.1" creator="HikeAndSeek"
     xmlns="http://www.topografix.com/GPX/1/1"
+    xmlns:osmand="https://osmand.net"
+    xmlns:gpxx="http://www.garmin.com/xmlschemas/GpxExtensions/v3"
     xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
-    xsi:schemaLocation="http://www.topografix.com/GPX/1/1 http://www.topografix.com/GPX/1/1/gpx.xsd">desc
+    xsi:schemaLocation="http://www.topografix.com/GPX/1/1 http://www.topografix.com/GPX/1/1/gpx.xsd
+        http://www.garmin.com/xmlschemas/GpxExtensions/v3 http://www.garmin.com/xmlschemas/GpxExtensionsv3.xsd">
   <metadata>
     <name>HikeAndSeek Locations</name>
     <time>${timestamp}</time>
@@ -156,9 +175,14 @@ fun generateGPX(locations: List<Location>): String {
         sb.append("""  <wpt lat="${location.latitude}" lon="${location.longitude}">
     <name>${location.id}</name>
     <desc>${location.description}</desc>
+    <type>${location.category.name}</type>
     <extensions>
       <rdX>${location.rdX}</rdX>
       <rdY>${location.rdY}</rdY>
+      <osmand:color>${location.category.hexColor}</osmand:color>
+      <gpxx:WaypointExtension>
+        <gpxx:DisplayColor>${location.category.garminColor}</gpxx:DisplayColor>
+      </gpxx:WaypointExtension>
     </extensions>
   </wpt>
 """)

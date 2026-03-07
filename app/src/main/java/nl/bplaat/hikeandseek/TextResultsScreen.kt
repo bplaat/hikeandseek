@@ -14,10 +14,15 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.IntrinsicSize
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
@@ -202,35 +207,43 @@ private fun LocationCard(
             containerColor = Color(0xFFF5F5F5)
         )
     ) {
-        Column(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(12.dp)
-        ) {
-            Text(
-                text = location.id,
-                fontSize = 16.sp,
-                fontWeight = FontWeight.Bold,
-                color = Color.Black
+        Row(modifier = Modifier.fillMaxWidth().height(IntrinsicSize.Min)) {
+            Box(
+                modifier = Modifier
+                    .width(6.dp)
+                    .fillMaxHeight()
+                    .background(Color(android.graphics.Color.parseColor(location.category.hexColor)))
             )
-            Text(
-                text = location.description,
-                fontSize = 14.sp,
-                color = Color(0xFF333333),
-                modifier = Modifier.padding(top = 4.dp)
-            )
-            Text(
-                text = "RD: (${rdxPrefix}${location.rdXRaw}${rdxSuffix}, ${rdyPrefix}${location.rdYRaw}${rdySuffix})",
-                fontSize = 12.sp,
-                color = Color(0xFF666666),
-                modifier = Modifier.padding(top = 4.dp)
-            )
-            Text(
-                text = "WGS84: (${String.format("%.6f", location.latitude)}, ${String.format("%.6f", location.longitude)})",
-                fontSize = 12.sp,
-                color = Color(0xFF666666),
-                modifier = Modifier.padding(top = 2.dp)
-            )
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(12.dp)
+            ) {
+                Text(
+                    text = location.id,
+                    fontSize = 16.sp,
+                    fontWeight = FontWeight.Bold,
+                    color = Color.Black
+                )
+                Text(
+                    text = location.description,
+                    fontSize = 14.sp,
+                    color = Color(0xFF333333),
+                    modifier = Modifier.padding(top = 4.dp)
+                )
+                Text(
+                    text = "RD: (${rdxPrefix}${location.rdXRaw}${rdxSuffix}, ${rdyPrefix}${location.rdYRaw}${rdySuffix})",
+                    fontSize = 12.sp,
+                    color = Color(0xFF666666),
+                    modifier = Modifier.padding(top = 4.dp)
+                )
+                Text(
+                    text = "WGS84: (${String.format("%.6f", location.latitude)}, ${String.format("%.6f", location.longitude)})",
+                    fontSize = 12.sp,
+                    color = Color(0xFF666666),
+                    modifier = Modifier.padding(top = 2.dp)
+                )
+            }
         }
     }
 }
